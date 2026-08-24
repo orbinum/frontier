@@ -485,8 +485,7 @@ where
 						let _ = locked.remove(&key);
 					}
 					return Err(internal_err(format!(
-						"query returned more than {max_past_logs} results; \
-						 recreate the filter over a narrower range",
+						"query returned more than {max_past_logs} results; recreate the filter over a narrower range",
 					)));
 				}
 
