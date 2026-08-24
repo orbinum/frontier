@@ -25,7 +25,7 @@ describeWithFrontier("Frontier RPC (EthFilterApi)", (context) => {
 				gas: "0x100000",
 				nonce: nonce,
 			},
-			GENESIS_ACCOUNT_PRIVATE_KEY,
+			GENESIS_ACCOUNT_PRIVATE_KEY
 		);
 		nonce = nonce + 1;
 		await customRequest(context.web3, "eth_sendRawTransaction", [tx.rawTransaction]);
@@ -192,7 +192,7 @@ describeWithFrontier("Frontier RPC (EthFilterApi)", (context) => {
 		const foundTx = allLogs.some(
 			(log) =>
 				typeof log?.transactionHash === "string" &&
-				log.transactionHash.toLowerCase() === tx.transactionHash.toLowerCase(),
+				log.transactionHash.toLowerCase() === tx.transactionHash.toLowerCase()
 		);
 
 		expect(foundTx).to.be.true;
