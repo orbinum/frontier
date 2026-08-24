@@ -443,7 +443,7 @@ where
 							.from_block
 							.and_then(|v| v.to_min_block_num())
 							.map(|s| s.unique_saturated_into())
-							.unwrap_or(to_number);
+							.unwrap_or(at_block);
 
 						logs.extend(
 							self.scan_range_logs(
@@ -459,15 +459,19 @@ where
 				};
 
 				for entry in entries {
+					let is_reorg = entry.logs.iter().any(|log| log.removed);
+
 					for log in entry.logs.iter() {
 						// Skip what the scan above already returned: a block can sit in
 						// both, since the journal ingests asynchronously and may have
 						// picked up a block the scan also covered.
-						if let (Some(scanned_through), Some(block_number)) =
-							(scanned_through, log.block_number)
-						{
-							if block_number <= U256::from(scanned_through) {
-								continue;
+						if !is_reorg {
+							if let (Some(scanned_through), Some(block_number)) =
+								(scanned_through, log.block_number)
+							{
+								if block_number <= U256::from(scanned_through) {
+									continue;
+								}
 							}
 						}
 						if log_matches_filter(&params, log, true) {
@@ -477,17 +481,22 @@ where
 				}
 
 				if logs.len() as u32 > max_past_logs {
+					if let Ok(locked) = &mut self.filter_pool.lock() {
+						let _ = locked.remove(&key);
+					}
 					return Err(internal_err(format!(
-						"query returned more than {max_past_logs} results",
+						"query returned more than {max_past_logs} results; \
+						 recreate the filter over a narrower range",
 					)));
 				}
 
-				if let Ok(locked) = &mut self.filter_pool.lock() {
-					if let Some(pool_item) = locked.get_mut(&key) {
-						pool_item.last_log_journal_seq = Some(next_cursor);
-						pool_item.last_poll = BlockNumberOrHash::Num(latest_u64);
-						pool_item.log_scan_done = true;
-					}
+				let Ok(locked) = &mut self.filter_pool.lock() else {
+					return Err(internal_err("Filter pool is not available."));
+				};
+				if let Some(pool_item) = locked.get_mut(&key) {
+					pool_item.last_log_journal_seq = Some(next_cursor);
+					pool_item.last_poll = BlockNumberOrHash::Num(latest_u64);
+					pool_item.log_scan_done = true;
 				}
 
 				Ok(FilterChanges::Logs(logs))
