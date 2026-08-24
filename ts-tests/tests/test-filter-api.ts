@@ -25,7 +25,7 @@ describeWithFrontier("Frontier RPC (EthFilterApi)", (context) => {
 				gas: "0x100000",
 				nonce: nonce,
 			},
-			GENESIS_ACCOUNT_PRIVATE_KEY
+			GENESIS_ACCOUNT_PRIVATE_KEY,
 		);
 		nonce = nonce + 1;
 		await customRequest(context.web3, "eth_sendRawTransaction", [tx.rawTransaction]);
@@ -126,8 +126,9 @@ describeWithFrontier("Frontier RPC (EthFilterApi)", (context) => {
 
 		expect(receipt.logs.length).to.be.eq(1);
 
-		// Topic-only filter: `eth_getFilterChanges` starts at the journal cursor (no replay of
-		// retained history).
+		// `fromBlock` is honoured: the first poll reports matching logs already on
+		// chain, which the journal alone cannot supply — it only holds what arrived
+		// after the filter was created.
 		let createFilter = await customRequest(context.web3, "eth_newFilter", [
 			{
 				fromBlock: "0x0",
@@ -136,6 +137,12 @@ describeWithFrontier("Frontier RPC (EthFilterApi)", (context) => {
 			},
 		]);
 		let poll = await customRequest(context.web3, "eth_getFilterChanges", [createFilter.result]);
+		expect(poll.result.length).to.be.eq(1);
+		expect(poll.result[0].address.toLowerCase()).to.be.eq(receipt.contractAddress.toLowerCase());
+		expect(poll.result[0].topics).to.be.deep.eq(receipt.logs[0].topics);
+
+		// The scan runs once; a second poll with no new block reports nothing.
+		poll = await customRequest(context.web3, "eth_getFilterChanges", [createFilter.result]);
 		expect(poll.result.length).to.be.eq(0);
 
 		// A new canonical transition after the filter exists produces filter changes.
@@ -185,7 +192,7 @@ describeWithFrontier("Frontier RPC (EthFilterApi)", (context) => {
 		const foundTx = allLogs.some(
 			(log) =>
 				typeof log?.transactionHash === "string" &&
-				log.transactionHash.toLowerCase() === tx.transactionHash.toLowerCase()
+				log.transactionHash.toLowerCase() === tx.transactionHash.toLowerCase(),
 		);
 
 		expect(foundTx).to.be.true;
