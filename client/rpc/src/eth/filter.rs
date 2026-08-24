@@ -432,13 +432,18 @@ where
 				// poll, and let the journal serve the increments after that.
 				let scanned_through = match first_poll_at {
 					Some(at_block) => {
-						let to_number = at_block.min(latest_u64);
+						let scan_ceiling = at_block.min(latest_u64);
+						let to_number = filter
+							.to_block
+							.and_then(|v| v.to_min_block_num())
+							.map(|s| s.unique_saturated_into())
+							.unwrap_or(scan_ceiling)
+							.min(scan_ceiling);
 						let from_number = filter
 							.from_block
 							.and_then(|v| v.to_min_block_num())
 							.map(|s| s.unique_saturated_into())
-							.unwrap_or(to_number)
-							.min(to_number);
+							.unwrap_or(to_number);
 
 						logs.extend(
 							self.scan_range_logs(
