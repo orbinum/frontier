@@ -116,3 +116,25 @@ impl<'a, T: Config, H: PrecompileHandle> PreparedCall<'a, T, H> {
 		exec_result
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn prefix_check_tolerates_code_shorter_than_the_prefix() {
+		let matches = |code: &[u8]| code.get(0..8) == Some(&PREFIX[..]);
+
+		assert!(!matches(&[]));
+		assert!(!matches(&PREFIX[..7]));
+		assert!(matches(&PREFIX));
+
+		let mut with_body = PREFIX.to_vec();
+		with_body.extend_from_slice(b"blob");
+		assert!(matches(&with_body));
+
+		let mut wrong = PREFIX;
+		wrong[0] = 0x00;
+		assert!(!matches(&wrong));
+	}
+}
